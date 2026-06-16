@@ -638,14 +638,20 @@ pub(crate) fn matched_lines_indexes_for_hunk(
     let mut hunk_rhs_novel = hunk.novel_rhs.iter().copied().collect::<Vec<_>>();
     hunk_rhs_novel.sort();
 
-    let hunk_smallest = (
+    let mut hunk_smallest = (
         hunk_lhs_novel.first().copied(),
         hunk_rhs_novel.first().copied(),
     );
-    let hunk_largest = (
+    let mut hunk_largest = (
         hunk_lhs_novel.last().copied(),
         hunk_rhs_novel.last().copied(),
     );
+    if hunk_smallest == (None, None) {
+        hunk_smallest = hunk.lines.first().copied().unwrap_or(hunk_smallest);
+    }
+    if hunk_largest == (None, None) {
+        hunk_largest = hunk.lines.last().copied().unwrap_or(hunk_largest);
+    }
 
     // TODO: Use binary search instead.
     let mut start_i = None;
@@ -861,5 +867,23 @@ mod tests {
                 (Some(5.into()), Some(5.into())),
             ]
         );
+    }
+
+    #[test]
+    fn test_matched_lines_for_hunk_without_novel_bounds() {
+        let matched_lines = &[
+            (Some(0.into()), Some(0.into())),
+            (Some(1.into()), None),
+            (Some(2.into()), None),
+        ];
+        let hunk = Hunk {
+            novel_lhs: DftHashSet::default(),
+            novel_rhs: DftHashSet::default(),
+            lines: vec![(Some(1.into()), None)],
+        };
+
+        let (start_i, end_i) = matched_lines_indexes_for_hunk(matched_lines, &hunk, 0);
+
+        assert_eq!((start_i, end_i), (1, 2));
     }
 }

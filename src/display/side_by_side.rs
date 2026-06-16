@@ -658,7 +658,7 @@ pub(crate) fn print(
                 display_options.display_mode,
                 DisplayMode::SideBySideShowBoth
             );
-            if no_lhs_changes && !show_both {
+            if no_lhs_changes && !no_rhs_changes && !show_both {
                 match rhs_line_num {
                     Some(rhs_line_num) => {
                         let rhs_line = &rhs_colored_lines[rhs_line_num.as_usize()];
@@ -678,7 +678,7 @@ pub(crate) fn print(
                         println!("{}{}", display_lhs_line_num, display_rhs_line_num);
                     }
                 }
-            } else if no_rhs_changes && !show_both {
+            } else if no_rhs_changes && !no_lhs_changes && !show_both {
                 match lhs_line_num {
                     Some(lhs_line_num) => {
                         let lhs_line = &lhs_colored_lines[lhs_line_num.as_usize()];

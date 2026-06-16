@@ -138,6 +138,22 @@ fn text_changes_at_end_doesnt_crash() {
 }
 
 #[test]
+fn json_empty_hunk_doesnt_crash() {
+    let mut cmd = get_base_command();
+
+    cmd.env("DFT_UNSTABLE", "yes")
+        .arg("--display=json")
+        .arg("sample_files/cli_tests/json_empty_hunk_1.py")
+        .arg("sample_files/cli_tests/json_empty_hunk_2.py");
+
+    let predicate_fn = predicate::str::contains("\"language\":\"Python\"")
+        .and(predicate::str::contains("\"lhs\":{\"line_number\":5,\"changes\":["))
+        .and(predicate::str::contains("\"rhs\":{\"line_number\":6,\"changes\":["))
+        .and(predicate::str::contains("[37,35]"));
+    cmd.assert().success().stdout(predicate_fn);
+}
+
+#[test]
 fn makefile_text_as_atom() {
     let mut cmd = get_base_command();
 
