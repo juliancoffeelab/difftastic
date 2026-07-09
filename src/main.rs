@@ -320,7 +320,11 @@ fn main() {
                         encountered_changes = results
                             .iter()
                             .any(|diff_result| diff_result.has_reportable_change());
-                        display::json::print_directory(results, display_options.print_unchanged);
+                        display::json::print_directory(
+                            results,
+                            display_options.print_unchanged,
+                            display_options.num_context_lines as usize,
+                        );
                     } else if display_options.sort_paths {
                         let mut result: Vec<DiffResult> = diff_iter.collect();
                         result.sort_unstable_by(|a, b| a.display_path.cmp(&b.display_path));
@@ -382,7 +386,12 @@ fn main() {
                         | DisplayMode::SideBySideShowBoth => {
                             print_diff_result(&display_options, &diff_result);
                         }
-                        DisplayMode::Json => display::json::print(&diff_result),
+                        DisplayMode::Json => {
+                            display::json::print(
+                                &diff_result,
+                                display_options.num_context_lines as usize,
+                            );
+                        }
                     }
                 }
             }

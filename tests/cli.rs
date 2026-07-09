@@ -147,8 +147,12 @@ fn json_empty_hunk_doesnt_crash() {
         .arg("sample_files/cli_tests/json_empty_hunk_2.py");
 
     let predicate_fn = predicate::str::contains("\"language\":\"Python\"")
-        .and(predicate::str::contains("\"lhs\":{\"line_number\":5,\"changes\":["))
-        .and(predicate::str::contains("\"rhs\":{\"line_number\":6,\"changes\":["))
+        .and(predicate::str::contains(
+            "\"lhs\":{\"line_number\":5,\"changes\":[",
+        ))
+        .and(predicate::str::contains(
+            "\"rhs\":{\"line_number\":6,\"changes\":[",
+        ))
         .and(predicate::str::contains("[37,35]"));
     cmd.assert().success().stdout(predicate_fn);
 }

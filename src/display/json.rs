@@ -4,10 +4,8 @@ use line_numbers::LineNumber;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
-use crate::display::context::{all_matched_lines_filled, opposite_positions};
-use crate::display::hunks::{matched_lines_indexes_for_hunk, matched_pos_to_hunks, merge_adjacent};
-use crate::display::side_by_side::lines_with_novel;
-use crate::lines::MaxLine;
+use crate::display::context::all_matched_lines_filled;
+use crate::display::hunks::matched_lines_indexes_for_hunk;
 use crate::parse::syntax::{self, MatchedPos, StringKind};
 use crate::summary::{DiffResult, FileContent, FileFormat};
 
@@ -56,25 +54,11 @@ impl<'f> File<'f> {
     }
 }
 
-impl<'f> From<&'f DiffResult> for File<'f> {
-    fn from(summary: &'f DiffResult) -> Self {
+impl<'f> File<'f> {
+    fn from_diff(summary: &'f DiffResult, num_context_lines: usize) -> Self {
         match (&summary.lhs_src, &summary.rhs_src) {
             (FileContent::Text(lhs_src), FileContent::Text(rhs_src)) => {
-                // TODO: move into function as it is effectively duplicates lines 365-375 of main::print_diff_result
-                let opposite_to_lhs = opposite_positions(&summary.lhs_positions);
-                let opposite_to_rhs = opposite_positions(&summary.rhs_positions);
-
-                let hunks = matched_pos_to_hunks(&summary.lhs_positions, &summary.rhs_positions);
-                let hunks = merge_adjacent(
-                    &hunks,
-                    &opposite_to_lhs,
-                    &opposite_to_rhs,
-                    lhs_src.max_line(),
-                    rhs_src.max_line(),
-                    0,
-                );
-
-                if hunks.is_empty() {
+                if summary.hunks.is_empty() {
                     return File::with_status(
                         &summary.file_format,
                         &summary.display_path,
@@ -100,9 +84,6 @@ impl<'f> From<&'f DiffResult> for File<'f> {
                 let lhs_lines = lhs_src.split('\n').collect::<Vec<&str>>();
                 let rhs_lines = rhs_src.split('\n').collect::<Vec<&str>>();
 
-                let (lhs_lines_with_novel, rhs_lines_with_novel) =
-                    lines_with_novel(&summary.lhs_positions, &summary.rhs_positions);
-
                 let matched_lines = all_matched_lines_filled(
                     &summary.lhs_positions,
                     &summary.rhs_positions,
@@ -118,22 +99,16 @@ impl<'f> From<&'f DiffResult> for File<'f> {
 
                 let mut matched_lines = &matched_lines[..];
 
-                let mut chunks = Vec::with_capacity(hunks.len());
-                for hunk in &hunks {
+                let mut chunks = Vec::with_capacity(summary.hunks.len());
+                for hunk in &summary.hunks {
                     let mut lines = BTreeMap::new();
 
-                    let (start_i, end_i) = matched_lines_indexes_for_hunk(matched_lines, hunk, 0);
+                    let (start_i, end_i) =
+                        matched_lines_indexes_for_hunk(matched_lines, hunk, num_context_lines);
                     let aligned_lines = &matched_lines[start_i..end_i];
                     matched_lines = &matched_lines[start_i..];
 
                     for (lhs_line_num, rhs_line_num) in aligned_lines {
-                        if !lhs_lines_with_novel.contains(&lhs_line_num.unwrap_or(LineNumber(0)))
-                            && !rhs_lines_with_novel
-                                .contains(&rhs_line_num.unwrap_or(LineNumber(0)))
-                        {
-                            continue;
-                        }
-
                         let line = lines
                             .entry((lhs_line_num.map(|l| l.0), rhs_line_num.map(|l| l.0)))
                             .or_insert_with(|| {
@@ -293,10 +268,14 @@ impl Highlight {
     }
 }
 
-pub(crate) fn print_directory(diffs: Vec<DiffResult>, print_unchanged: bool) {
+pub(crate) fn print_directory(
+    diffs: Vec<DiffResult>,
+    print_unchanged: bool,
+    num_context_lines: usize,
+) {
     let files = diffs
         .iter()
-        .map(File::from)
+        .map(|diff| File::from_diff(diff, num_context_lines))
         .filter(|f| print_unchanged || f.status != Status::Unchanged)
         .collect::<Vec<File>>();
     println!(
@@ -305,8 +284,8 @@ pub(crate) fn print_directory(diffs: Vec<DiffResult>, print_unchanged: bool) {
     );
 }
 
-pub(crate) fn print(diff: &DiffResult) {
-    let file = File::from(diff);
+pub(crate) fn print(diff: &DiffResult, num_context_lines: usize) {
+    let file = File::from_diff(diff, num_context_lines);
     println!(
         "{}",
         serde_json::to_string(&file).expect("failed to serialize file")
